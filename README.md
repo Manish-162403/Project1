@@ -31,7 +31,7 @@ Repository for backend cohort - Thorium
 - Create a author document from request body.
   `Endpoint: BASE_URL/authors`
 
-### POST /blogs
+### POST /blogs/hgggt
 - Create a blog document from request body. Get authorId in request body only.
 - Make sure the authorId is a valid authorId by checking the author exist in the authors collection.
 - Return HTTP status 201 on a succesful blog creation. Also return the blog document. The response should be a JSON object like [this](#successful-response-structure) 

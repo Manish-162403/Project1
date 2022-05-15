@@ -14,15 +14,23 @@ const createBlog = async function (req, res) {
 
     let data = req.body;
 
-    if (Object.keys(data) != 0) {
-      if (!isValid(data.title)) { return res.status(400).send({ status: false, msg: "Title is required" }) }
-      if (!isValid(data.body)) { return res.status(400).send({ status: false, msg: "Body is required" }) }
-      if (!isValid(data.category)) { return res.status(400).send({ status: false, msg: "Category is required " }) }
+    if (Object.keys(data) == 0) {
+      return res.status(400).send({ ERROR: "Please input some data" }) 
+    }
+    
+      if (!isValid(data.title)) {
+         return res.status(400).send({ status: false, msg: "Title is required" }) 
+        }
+      if (!isValid(data.body)) { 
+        return res.status(400).send({ status: false, msg: "Body is required" }) 
+      }
+      if (!isValid(data.category)) {
+         return res.status(400).send({ status: false, msg: "Category is required " })
+         }
 
-
-
-
-      if (req.body.authorId == req.decodedToken.authId) {
+      if (req.body.authorId != req.decodedToken.authId) {
+         return res.status(401).send({ ERROR: "Only the logged in author can create there blog" }) 
+        }
 
 
         let unPublishedBlog = await blogModel.create(data);
@@ -36,14 +44,7 @@ const createBlog = async function (req, res) {
 
           return res.status(201).send({ PublishedBlog: publishedBlog })
         }
-        return res.status(201).send({ UnPublishedBlog: unPublishedBlog });
-
-      }
-
-      else { return res.status(403).send({ ERROR: "Only the logged in author can create there blog" }) }
-    }
-    else { return res.status(400).send({ ERROR: "BAD REQUEST" }) }
-
+        return res.status(201).send({ UnPublishedBlog: unPublishedBlog }); 
 
 
   } catch (err) {
@@ -87,15 +88,25 @@ const updateBlog = async function (req, res) {
     let data = req.body
     let filter = {}
     let blogToBeModified = await blogModel.findById(blogId)
-    if (blogToBeModified) {
+    
+    if (!blogToBeModified) {
+      return res.status(404).send({ ERROR: "Blog not found" }) 
+    }
 
 
-      if (blogToBeModified.authorId == req.decodedToken.authId) {
+      if (blogToBeModified.authorId != req.decodedToken.authId) {
+        return res.status(403).send({ ERROR: "Author is not authorized to update requested blog" }) 
+      }
 
 
         if (Object.keys(data) != 0) {
+          return res.status(400).send({ status:false, ERROR: "Please input some data" })
+        }
 
-          if (blogToBeModified.isDeleted == false) {
+          if (blogToBeModified.isDeleted == true) {
+            return res.status(400).send({ ERROR: "Blog requested has been deleted" })
+          }
+
             if (isValid(data.title)) { filter['title'] = data.title }
             if (isValid(data.body)) { filter['body'] = data.body }
            // if (isValid(data.tags)) { filter['tags'] = data.tags }
@@ -111,22 +122,8 @@ const updateBlog = async function (req, res) {
 
             return res.status(202).send({ Status: "Blog updated successfully", updatedBlog })
 
-          }
-          else {
-            return res.status(400).send({ ERROR: "Blog requested has been deleted" })
-          }
-        }
-        else {
-          return res.status(400).send({ ERROR: "Bad Request" })
-        }
-
-
-      } else { return res.status(403).send({ ERROR: "Author is not authorized to update requested blog" }) }
-
-
-    } else { return res.status(404).send({ ERROR: "Blog not found" }) }
-  }
-
+          
+   }   
   catch (err) {
     return res.status(500).send({ ERROR: err.message })
   }
@@ -141,26 +138,27 @@ let deleteBlogById = async function (req, res) {
   try {
     let id = req.params.blogId
 
-    if (id) {
+    if (id) {  
+      return res.status(400).send({ ERROR: 'BAD REQUEST' }) 
+    }
+
       let blogToBeDeleted = await blogModel.findById(id)
-      if (blogToBeDeleted.isDeleted == true) { return res.status(400).send({ status: false, msg: "Blog has already been deleted" }) }
-      if (blogToBeDeleted) {
-        if (blogToBeDeleted.authorId == req.decodedToken.authId) {
+      if (blogToBeDeleted.isDeleted == true) {
+         return res.status(400).send({ status: false, msg: "Blog has already been deleted" })
+         }
+
+      if (!blogToBeDeleted) {
+        return res.status(404).send({ ERROR: "Blog to be deleted not found" })
+       }
+
+        if (blogToBeDeleted.authorId != req.decodedToken.authId) {
+          return res.status(403).send({ ERROR: "Author is not authorised to delete requested blog" }) }
 
 
           let deletedBlog = await blogModel.findOneAndUpdate({ _id: id },
             { $set: { isDeleted: true, deletedAt: Date.now() } })
 
           return res.status(200).send({ Status: "Requested blog has been deleted." })
-
-        } else { return res.status(403).send({ ERROR: "Author is not authorised to delete requested blog" }) }
-
-
-      } else { return res.status(404).send({ ERROR: "Blog to be deleted not found" }) }
-
-    } else { return res.status(400).send({ ERROR: 'BAD REQUEST' }) }
-
-
   }
   catch (err) { return res.status(500).send({ ERROR: err.message }) }
 
@@ -174,16 +172,21 @@ let deletedByQueryParams = async function (req, res) {
   try {
 
     let data = req.query
-    if (Object.keys(data) != 0) {
+    if (Object.keys(data).length == 0) {
+      return res.status(400).send({ ERROR: "Please provide queries" }) 
+    }
+
       if (data.ispublished == true) { return res.status(400).send({ status: false, msg: "isPublished must be false. That is the " }) }
       let filter = { isDeleted: false }
       if (isValid(data.category)) { filter['category'] = data.category }
       if (isValid(data.authorId)) { filter['authorId'] = data.authorId }
       if (isValid(data.tags)) { filter['tags'] = data.tags }
-      console.log(filter)
+    
       let getBlogs = await blogModel.find(filter).select({ authorId: 1, _id: 1 })
 
-      if (getBlogs.length != 0) {
+      if (getBlogs.length == 0) {
+        return res.status(404).send({ ERROR: "No Blogs were found" })
+      }
 
         let blogsToBeDeleted = getBlogs.filter(function (el) { return el.authorId == req.decodedToken.authId })
 
@@ -192,18 +195,13 @@ let deletedByQueryParams = async function (req, res) {
 
           let deletedBlogs = await blogModel.updateMany({ _id: { $in: blogsToBeDeleted } },
             { $set: { isDeleted: true, deletedAt: Date.now() } })
-          console.log(deletedBlogs)
+        
 
           return res.status(200).send({ status: "Requested blog has been deleted" })
 
-        } else { return res.status(403).send({ ERROR: "The author is not authorised to delete the requested blogs" }) }
-
-
-
-
-      } else { return res.status(404).send({ ERROR: "No Blogs were found" }) }
-
-    } else { return res.status(400).send({ ERROR: "Please provide queries" }) }
+        } else { 
+          return res.status(403).send({ ERROR: "The author is not authorised to delete the requested blogs" })
+         }
 
   }
   catch (err) { return res.status(500).send({ ERROR: err.message }) }
